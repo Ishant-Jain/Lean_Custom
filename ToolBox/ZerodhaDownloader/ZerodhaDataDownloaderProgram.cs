@@ -54,11 +54,11 @@ namespace QuantConnect.ToolBox.ZerodhaDownloader
                 var castSecurityType = (SecurityType)Enum.Parse(typeof(SecurityType), securityType);
 
                 // Load settings from config.json and create downloader
-                var dataDirectory = Config.Get("data-directory", "../../../Data");
+                var dataDirectory = Config.Get("data-folder", "../../../Data");
 
                 foreach (var pair in tickers)
                 {
-                    var quoteTicker = market + ":" + pair;
+                    var quoteTicker = "NSE:" + pair;
                     var instrumentQuotes = _kite.GetQuote(new string[] { quoteTicker });
                     var quote = instrumentQuotes[quoteTicker];
 
