@@ -31,7 +31,12 @@ namespace QuantConnect.Orders
         }
 
         /// <summary>
-        /// Define the Kite Order type that we are targeting (MIS/CNC/NRML).
+        /// Kite product type
+        /// </summary>
+        public string ProductType { get;}
+
+        /// <summary>
+        /// Initialize a new OrderProperties for <see cref="ZerodhaOrderProperties"/>
         /// </summary>
         public enum KiteProductType
         {
@@ -40,6 +45,37 @@ namespace QuantConnect.Orders
             NRML
         }
 
+        /// <summary>
+        /// Initialize a new OrderProperties for <see cref="ZerodhaOrderProperties"/>
+        /// </summary>
+        /// <param name="exchange">Exchange value, nse/bse etc</param>
+        /// <param name="productType">Product type</param>
+        public ZerodhaOrderProperties(string exchange, KiteProductType productType) : this(exchange)
+        {
+            ProductType = productType.ToStringInvariant();
+        }
+
+        /// <summary>
+        /// Define the Kite Order type that we are targeting (MIS/CNC/NRML).
+        /// </summary>
+        public enum KiteProductType
+        {
+            /// <summary>
+            /// Margin Intraday Square Off 
+            /// </summary>
+            MIS,
+
+            /// <summary>
+            /// Cash and Carry 
+            /// </summary>
+            CNC,
+
+            /// <summary>
+            /// Normal
+            /// </summary>
+            NRML
+        }
+        
         /// <summary>
         /// Returns a new instance clone of this object
         /// </summary>
