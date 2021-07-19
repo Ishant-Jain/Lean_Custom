@@ -69,13 +69,6 @@ namespace QuantConnect.Tests.API
             Assert.IsFalse(api.Connected);
         }
 
-        [Test]
-        public void NullDataFolder()
-        {
-            var api = new Api.Api();
-            Assert.DoesNotThrow(() => api.Initialize(TestAccount, "", null));
-        }
-
         [TestCase("C:\\Data", "forex/oanda/daily/eurusd.zip")]
         [TestCase("C:\\Data\\", "forex/oanda/daily/eurusd.zip")]
         [TestCase("C:/Data/", "forex/oanda/daily/eurusd.zip")]
