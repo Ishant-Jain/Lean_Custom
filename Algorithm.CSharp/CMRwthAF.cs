@@ -147,7 +147,7 @@ namespace QuantConnect.Algorithm.CSharp
                     {
                         recentclose.Add(symb, slice.Close);
                     }
-                    Log($"History of {symb} at {Time.Date} is : Timestamp :{slice.EndTime} --- Close :{slice.Close}");
+                    //Log($"History of {symb} at {Time.Date} is : Timestamp :{slice.EndTime} --- Close :{slice.Close}");
                 }
                 yesthigh.Add(symb, yhigh);
                 todayhigh.Add(symb, thigh);
