@@ -153,7 +153,6 @@ namespace QuantConnect.Algorithm.CSharp
                 todayhigh.Add(symb, thigh);
                 candhigh.Add(symb, chigh);
                 candlow.Add(symb, clow);
-
             }
 
             foreach (var symb in symbollist)
@@ -197,7 +196,7 @@ namespace QuantConnect.Algorithm.CSharp
             foreach (Symbol sym in FilterListSym)
             {
                 int qty = Convert.ToInt32(250000 / candhigh[sym]);
-                StopMarketOrder(sym, -qty, candhigh[sym]);
+                StopMarketOrder(sym, -qty, candlow[sym]);
             }
         }
 
