@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -49,6 +49,7 @@ using QuantConnect.ToolBox.SmartInsider;
 using QuantConnect.ToolBox.TiingoNewsConverter;
 using QuantConnect.ToolBox.ZerodhaDownloader;
 using QuantConnect.ToolBox.AlphaVantageDownloader;
+using QuantConnect.ToolBox.GDFLDataImporter;
 
 namespace QuantConnect.ToolBox
 {
@@ -83,6 +84,12 @@ namespace QuantConnect.ToolBox
                     case "zerodhadownloader":
                         ZerodhaDataDownloaderProgram.ZerodhaDataDownloader(tickers,market, resolution, securityType, fromDate, toDate);
                         break;
+
+                    case "gdfdl":
+                    case "GDFLDataImporter":
+                        GDFLDataImporterProgram.GDFLDataImporter(tickers, market, resolution, securityType, fromDate, toDate);
+                        break;
+
                     case "gdaxdl":
                     case "gdaxdownloader":
                         GDAXDownloaderProgram.GDAXDownloader(tickers, resolution, fromDate, toDate);
