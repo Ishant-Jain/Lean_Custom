@@ -52,6 +52,11 @@ namespace QuantConnect.Brokerages.InteractiveBrokers
     [BrokerageFactory(typeof(InteractiveBrokersBrokerageFactory))]
     public sealed class InteractiveBrokersBrokerage : Brokerage, IDataQueueHandler, IDataQueueUniverseProvider
     {
+        /// <summary>
+        /// The default gateway version to use
+        /// </summary>
+        public static string DefaultVersion { get; } = "985";
+
         private readonly IBAutomater.IBAutomater _ibAutomater;
 
         // Existing orders created in TWS can *only* be cancelled/modified when connected with ClientId = 0
@@ -71,6 +76,7 @@ namespace QuantConnect.Brokerages.InteractiveBrokers
         private readonly ISecurityProvider _securityProvider;
         private readonly IDataAggregator _aggregator;
         private readonly IB.InteractiveBrokersClient _client;
+        private readonly int _ibVersion;
         private readonly string _agentDescription;
         private readonly EventBasedDataQueueHandlerSubscriptionManager _subscriptionManager;
 
@@ -167,22 +173,7 @@ namespace QuantConnect.Brokerages.InteractiveBrokers
         /// <param name="aggregator">consolidate ticks</param>
         /// <param name="mapFileProvider">representing all the map files</param>
         public InteractiveBrokersBrokerage(IAlgorithm algorithm, IOrderProvider orderProvider, ISecurityProvider securityProvider, IDataAggregator aggregator, IMapFileProvider mapFileProvider)
-            : this(
-                algorithm,
-                orderProvider,
-                securityProvider,
-                aggregator,
-                mapFileProvider,
-                Config.Get("ib-account"),
-                Config.Get("ib-host", "LOCALHOST"),
-                Config.GetInt("ib-port", 4001),
-                Config.Get("ib-tws-dir"),
-                Config.Get("ib-version", "974"),
-                Config.Get("ib-user-name"),
-                Config.Get("ib-password"),
-                Config.Get("ib-trading-mode"),
-                Config.GetValue("ib-agent-description", IB.AgentDescription.Individual)
-                )
+            : this(algorithm, orderProvider, securityProvider, aggregator, mapFileProvider, Config.Get("ib-account"))
         {
         }
 
@@ -206,7 +197,7 @@ namespace QuantConnect.Brokerages.InteractiveBrokers
                 Config.Get("ib-host", "LOCALHOST"),
                 Config.GetInt("ib-port", 4001),
                 Config.Get("ib-tws-dir"),
-                Config.Get("ib-version", "974"),
+                Config.Get("ib-version", DefaultVersion),
                 Config.Get("ib-user-name"),
                 Config.Get("ib-password"),
                 Config.Get("ib-trading-mode"),
@@ -259,6 +250,7 @@ namespace QuantConnect.Brokerages.InteractiveBrokers
             _account = account;
             _host = host;
             _port = port;
+            _ibVersion = Convert.ToInt32(ibVersion, CultureInfo.InvariantCulture);
             _agentDescription = agentDescription;
 
             _symbolMapper = new InteractiveBrokersSymbolMapper(mapFileProvider);
@@ -2736,12 +2728,13 @@ namespace QuantConnect.Brokerages.InteractiveBrokers
         /// <summary>
         /// Modifies the quantity received from IB based on the security type
         /// </summary>
-        public static int AdjustQuantity(SecurityType type, int size)
+        public int AdjustQuantity(SecurityType type, int size)
         {
             switch (type)
             {
                 case SecurityType.Equity:
-                    return size * 100;
+                    // Effective in TWS version 985 and later, for US stocks the bid, ask, and last size quotes are shown in shares (not in lots).
+                    return _ibVersion < 985 ? size * 100 : size;
                 default:
                     return size;
             }
@@ -3429,5 +3422,6 @@ namespace QuantConnect.Brokerages.InteractiveBrokers
         {
             1100, 1101, 1102, 2103, 2104, 2105, 2106, 2107, 2108, 2119, 2157, 2158, 10197
         };
+
     }
 }

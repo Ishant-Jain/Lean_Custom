@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -11,16 +11,37 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
 */
 
-using QuantConnect.Data;
+using NUnit.Framework;
+using Python.Runtime;
 
-namespace QuantConnect.DataSource
+namespace QuantConnect.Tests.Python
 {
-    /// <summary>
-    /// Represents a custom data type place holder
-    /// </summary>
-    public class NullData : BaseData
+    [TestFixture]
+    class PandasIndexingTests
     {
+        private dynamic _module;
+        private dynamic _pandasIndexingTests;
+
+        [SetUp]
+        public void Setup()
+        {
+            using (Py.GIL())
+            {
+                _module = Py.Import("PandasIndexingTests");
+                _pandasIndexingTests = _module.PandasIndexingTests();
+            }
+        }
+
+        [Test]
+        public void TestIndexingDataFrameWithList()
+        {
+            using (Py.GIL())
+            {
+                Assert.DoesNotThrow((() => _pandasIndexingTests.test_indexing_dataframe_with_list()));
+            }
+        }
     }
 }
