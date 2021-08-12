@@ -44,6 +44,7 @@ using QuantConnect.Util;
 using QuantConnect.ToolBox.ZerodhaDownloader;
 using QuantConnect.ToolBox.AlphaVantageDownloader;
 using QuantConnect.ToolBox.GDFLDataImporter;
+using QuantConnect.ToolBox.TrueDataImporter;
 
 namespace QuantConnect.ToolBox
 {
@@ -84,10 +85,16 @@ namespace QuantConnect.ToolBox
                         GDFLDataImporterProgram.GDFLDataImporter(tickers, market, resolution, securityType, fromDate, toDate);
                         break;
 
+                    case "tdfdl":
+                    case "TrueDataImporter":
+                        TrueDataImporterProgram.TrueDataImporter(tickers, market, resolution, securityType, fromDate, toDate);
+                        break;
+
                     case "gdaxdl":
                     case "gdaxdownloader":
                         GDAXDownloaderProgram.GDAXDownloader(tickers, resolution, fromDate, toDate);
                         break;
+
                     case "cdl":
                     case "cryptoiqdownloader":
                         CryptoiqDownloaderProgram.CryptoiqDownloader(tickers, GetParameterOrExit(optionsObject, "exchange"), fromDate, toDate);
