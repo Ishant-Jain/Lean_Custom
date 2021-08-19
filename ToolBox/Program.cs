@@ -53,7 +53,12 @@ namespace QuantConnect.ToolBox
         public static void Main(string[] args)
         {
             Log.DebuggingEnabled = Config.GetBool("debug-mode");
-            Log.FilePath = Path.Combine(Config.Get("results-destination-folder"), "log.txt");
+            var destinationDir = Config.Get("results-destination-folder");
+            if (!string.IsNullOrEmpty(destinationDir))
+            {
+                Directory.CreateDirectory(destinationDir);
+                Log.FilePath = Path.Combine(destinationDir, "log.txt");
+            }
             Log.LogHandler = Composer.Instance.GetExportedValueByTypeName<ILogHandler>(Config.Get("log-handler", "CompositeLogHandler"));
 
             var optionsObject = ToolboxArgumentParser.ParseArguments(args);
