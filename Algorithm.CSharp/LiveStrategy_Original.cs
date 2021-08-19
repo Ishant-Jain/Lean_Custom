@@ -13,7 +13,7 @@ using MathNet;
 
 namespace QuantConnect.Algorithm.CSharp
 {
-    public class LiveStrategy : QCAlgorithm
+    public class LiveStrategy_Original : QCAlgorithm
     {
         private static Dictionary<Symbol, decimal> yestclose;
         private static Dictionary<Symbol, decimal> yesthigh;
@@ -23,8 +23,6 @@ namespace QuantConnect.Algorithm.CSharp
         private static Dictionary<Symbol, decimal> candlow;
         private static Dictionary<Symbol, decimal> candhigh;
         private static List<Symbol> FilterListSym;
-        private static List<OrderTicket> Sell_Tickets;
-        private static List<OrderTicket> Stop_Loss_Tickets;
         private List<Symbol> entryList;
         private decimal yhigh;
         private decimal thigh;
@@ -34,13 +32,13 @@ namespace QuantConnect.Algorithm.CSharp
         QuantConnect.Symbol[] symbollist;
         public override void Initialize()
         {
-            SetStartDate(2021, 05, 25); //Set Start Date
-            SetEndDate(2021, 05, 30);
+            SetStartDate(2021, 07, 1); //Set Start Date
+            SetEndDate(2021, 07, 5);
             SetTimeZone("Asia/Calcutta"); //Set End Date
             SetAccountCurrency("INR");
             SetBrokerageModel(Brokerages.BrokerageName.Zerodha);
-            SetCash(989000);
-            //UniverseSettings.Leverage = 3;
+            SetCash(80000);
+            UniverseSettings.Leverage = 3;
 
             tickers = new List<string>() {"AARTIIND","ACC","ADANIENT","ADANIPORTS","ALKEM","AMARAJABAT","AMBUJACEM",
                 "APLLTD","APOLLOHOSP","APOLLOTYRE","ASHOKLEY","ASIANPAINT","AUBANK","AUROPHARMA","AXISBANK","BAJAJ-AUTO",
@@ -77,7 +75,7 @@ namespace QuantConnect.Algorithm.CSharp
                 TimeRules.At(10, 1, 0), () => { PerformFilter(); });
             //PerformFilter();
             Schedule.On(DateRules.Every(DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday),
-                TimeRules.At(15, 15, 0), () => { Exit_Positions(); });
+                TimeRules.At(15, 15, 0), () => { Liquidate(); });
 
         }
 
@@ -96,8 +94,6 @@ namespace QuantConnect.Algorithm.CSharp
             candlow = new Dictionary<Symbol, decimal>();
             candhigh = new Dictionary<Symbol, decimal>();
             entryList = new List<Symbol>();
-            Sell_Tickets = new List<OrderTicket>();
-            Stop_Loss_Tickets = new List<OrderTicket>();
             yestclose.Clear();
             recentclose.Clear();
             todayhigh.Clear();
@@ -193,8 +189,8 @@ namespace QuantConnect.Algorithm.CSharp
 
             //Logging Top 10 Symbols
             int i = 0;
-
-
+            
+            
             foreach (KeyValuePair<Symbol, decimal> gainer in Sortedgain.Take(10))
             {
                 string cross_high = "No";
@@ -208,144 +204,61 @@ namespace QuantConnect.Algorithm.CSharp
                 Log($"15 Min Candle Low : {candlow[gainer.Key]}");
                 Log($"15 Min Candle High : {candhigh[gainer.Key]}");
                 i++;
+
             }
-            if (FilterListSym.Count() > 0)
+
+            Log($"Portfolio value : {Portfolio.Cash} -- Portfolio margin Remaining : {Portfolio.MarginRemaining}");
+            decimal Equity = (Portfolio.Cash/ FilterListSym.Count)*3;
+
+            foreach (Symbol sym in FilterListSym)
             {
-                Log($"Portfolio value : {Portfolio.Cash} -- Portfolio margin Remaining : {Portfolio.MarginRemaining}");
-                decimal Equity_perc = (Portfolio.Cash/10)*3 / FilterListSym.Count;
-                decimal Min_Equity = (Portfolio.Cash/10)*3 * 2 / 10;
-                decimal Equity = Math.Min(Equity_perc, Min_Equity);
-
-                foreach (Symbol sym in FilterListSym)
+                Log($"POrtfolio is ====>>{Portfolio.PositionGroups}");
+                if (Securities[sym].Price > candlow[sym])
                 {
-                    if (Securities[sym].Price > candlow[sym])
-                    {
-                        int qty = Convert.ToInt32(Math.Floor(Equity / candlow[sym]));
-                        Log($"Stop Market Order Placed for {sym} : Quantity : {-qty} at Price : {candlow[sym]}");
-                        Sell_Tickets.Add(StopMarketOrder(sym, -qty, candlow[sym]));
-                    }
-                    else
-                    {
-                        int qty = Convert.ToInt32(Math.Floor(Equity / Securities[sym].Price));
-                        Log($"Market Order Placed for {sym} : Quantity : {-qty} at Price : {Securities[sym].Close}");
-                        MarketOrder(sym, -qty);
-
-                    }
-                    Log($"Portfolio value : {Portfolio.Cash} -- Portfolio margin Remaining : {Portfolio.MarginRemaining}");
+                    int qty = Convert.ToInt32(Math.Floor(Equity / candlow[sym]));
+                    Log($"Stop Market Order Placed for {sym} : Quantity : {qty} at Price : {candlow[sym]}");
+                    StopMarketOrder(sym, -qty, candlow[sym]);
                 }
+                else
+                {
+                    int qty = Convert.ToInt32(Math.Floor(Equity / Securities[sym].Price));
+                    Log($"Market Order Placed for {sym} : Quantity : {qty} at Price : {Securities[sym].Close}");
+                    MarketOrder(sym, -qty);
+                    
+                }
+                Log($"Portfolio value : {Portfolio.Cash} -- Portfolio margin Remaining : {Portfolio.MarginRemaining}");
             }
         }
 
         public override void OnData(Slice slice)
         {
-            Console.WriteLine($"                     ");
-            Console.WriteLine($"<<===============Portfolio Contains===============>>");
-            Show_Positions();
-            Console.WriteLine($"<<================================================>>");
+            if (slice != null)
+            {
+                //
+            }
+
         }
 
         public override void OnOrderEvent(OrderEvent orderEvent)
         {
             var order = Transactions.GetOrderById(orderEvent.OrderId);
-
             if (orderEvent.Status == OrderStatus.Filled && !entryList.Contains(orderEvent.Symbol))
             {
                 entryList.Add(orderEvent.Symbol);
                 var sym = orderEvent.Symbol;
-                var qty = orderEvent.Quantity * -1;
+                var qty = orderEvent.Quantity*-1;
+                Log($"{sym}---Quantity--{qty}");
                 if (Securities[sym].Price < candhigh[sym])
                 {
-                    Log($"Stop Market Order Triggered for {sym} : Quantity : {-qty} at Price {orderEvent.FillPrice}");
                     Log($"STOPLOSS ACTIVATED - Stop Market Order Placed for {sym} : Quantity : {qty} at TriggerPrice {candhigh[sym]}");
-                    Stop_Loss_Tickets.Add(StopMarketOrder(sym, qty, candhigh[sym]));
+                    StopMarketOrder(sym, qty, candhigh[sym]);
                 }
                 else
                 {
-                    Log($"Stop Market Order Triggered for {sym} : Quantity : {-qty} at Price {orderEvent.FillPrice}");
-                    Log($"STOPLOSS ACTIVATED ---{sym} has benn Liquidated by Market Order Placed at Price {Securities[sym].Price} for Quantity : {qty}");
+                    Log($"--{sym} has benn Liquidated by Market Order Placed at Price {Securities[sym].Price} for Quantity : {qty}");
                     MarketOrder(sym, qty);
                 }
 
-            }
-
-            if (orderEvent.Status == OrderStatus.Filled && orderEvent.Quantity > 0)
-            {
-                Log($"Buy : {orderEvent.Symbol} : Quantity : {orderEvent.Quantity} at Price {orderEvent.FillPrice}");
-                Log($"{orderEvent.Symbol}---->>POsition Exit");
-            }
-        }
-
-
-        public void Show_Positions()
-        {
-            foreach (var kvp in Portfolio)
-            {
-                if (kvp.Value.Invested)
-                {
-                    Console.WriteLine($"Symbol: {kvp.Key} -> Quantity: {kvp.Value.Quantity}");
-                }
-            }
-        }
-
-        //public void Exit_Positions()
-        //{
-        //    if (Portfolio.Invested)
-        //    {
-        //        if (Sell_Tickets.Count > 0)
-        //        {
-        //            foreach (OrderTicket ticket in Sell_Tickets)
-        //            {
-        //                Log($"----Stop Market Orders of {ticket.Symbol} for short Cancelled-----");
-        //                ticket.Cancel();
-        //            }
-        //        }
-
-        //        if (Stop_Loss_Tickets.Count > 0)
-        //        {
-        //            foreach (OrderTicket ticket in Stop_Loss_Tickets)
-        //            {
-        //                Log($"----Stop Loss Orders of {ticket.Symbol} for Exit Cancelled-----");
-        //                ticket.Cancel();
-        //            }
-        //        }
-
-        //        Log($"Liquidating at EOD");
-        //        Liquidate();
-        //    }
-
-        //}
-
-        public void Exit_Positions()
-        {
-            if (Portfolio.Invested)
-            {
-                if (Sell_Tickets.Count > 0)
-                {
-                    foreach (OrderTicket ticket in Sell_Tickets)
-                    {
-                        Log($"----Stop Market Orders of {ticket.Symbol} for short Cancelled-----");
-                        ticket.Cancel();
-                    }
-                }
-
-                if (Stop_Loss_Tickets.Count > 0)
-                {
-                    foreach (OrderTicket ticket in Stop_Loss_Tickets)
-                    {
-                        Log($"----Stop Loss Orders of {ticket.Symbol} for Exit Cancelled-----");
-                        ticket.Cancel();
-                    }
-                }
-
-                foreach (var kvp in Portfolio)
-                {
-                    if (kvp.Value.Invested)
-                    {
-                        var qty = Math.Abs(kvp.Value.Quantity);
-                        Log($"Liquidating Symbol: {kvp.Key} -> Quantity: {qty}");
-                        MarketOrder(kvp.Key, qty);
-                    }
-                }
             }
         }
     }
