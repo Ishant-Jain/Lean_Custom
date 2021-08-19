@@ -214,6 +214,7 @@ namespace QuantConnect.Algorithm.CSharp
                 decimal Equity_perc = Portfolio.Cash*3 / FilterListSym.Count;
                 decimal Min_Equity = Portfolio.Cash*3 * 2 / 10;
                 decimal Equity = Math.Min(Equity_perc, Min_Equity);
+                //decimal Equity = Equity_perc;
 
                 foreach (Symbol sym in FilterListSym)
                 {
@@ -260,14 +261,16 @@ namespace QuantConnect.Algorithm.CSharp
                 entryList.Add(orderEvent.Symbol);
                 var sym = orderEvent.Symbol;
                 var qty = orderEvent.Quantity * -1;
-                var profit_target_price = orderEvent.FillPrice * (decimal)993/1000;
-                if (Securities[sym].Price < candhigh[sym])
+                //var profit_target_price = orderEvent.FillPrice * (decimal)95/100;
+                //var stop_loss = orderEvent.FillPrice * 1.001M;
+                var stop_loss = Math.Min(candhigh[sym], orderEvent.FillPrice * 1.03M);
+                if (Securities[sym].Price < stop_loss)
                 {
                     Log($"Stop Market Order Triggered for {sym} : Quantity : {-qty} at Price {orderEvent.FillPrice}");
-                    Log($"STOPLOSS ACTIVATED - Stop Market Order Placed for {sym} : Quantity : {qty} at TriggerPrice {candhigh[sym]}");
-                    Log($"PROFIT TARGET ACTIVATED - Stop Market Order Placed for {sym} : Quantity : {qty} at TriggerPrice {profit_target_price}");
+                    Log($"STOPLOSS ACTIVATED - Stop Market Order Placed for {sym} : Quantity : {qty} at TriggerPrice {stop_loss}");
+                    //Log($"PROFIT TARGET ACTIVATED - Stop Market Order Placed for {sym} : Quantity : {qty} at TriggerPrice {profit_target_price}");
                     Sell_Tickets.Remove(sym);
-                    Stop_Loss_Tickets.Add(sym, StopMarketOrder(sym, qty, candhigh[sym]));
+                    Stop_Loss_Tickets.Add(sym, StopMarketOrder(sym, qty, stop_loss));
                     //Profit_Target_Tickets.Add(sym, LimitOrder(sym, qty, profit_target_price));
                 }
                 else
@@ -292,7 +295,7 @@ namespace QuantConnect.Algorithm.CSharp
             {
                 if (Portfolio[orderEvent.Symbol].NetProfit > 0)
                 {
-                    Log($"PROFIT TARGET Triggered for {orderEvent.Symbol} : Quantity : {orderEvent.Quantity} for Profit of : {Portfolio[orderEvent.Symbol].NetProfit}");
+                    Log($"Liquidated in Profit for {orderEvent.Symbol} : Quantity : {orderEvent.Quantity} for Profit of : {Portfolio[orderEvent.Symbol].NetProfit}");
                     //Profit_Target_Tickets.Remove(orderEvent.Symbol);
                 }
                 else
@@ -349,14 +352,14 @@ namespace QuantConnect.Algorithm.CSharp
                 }
             }
 
-            if (Profit_Target_Tickets.Count > 0)
-            {
-                foreach (var kvp in Profit_Target_Tickets)
-                {
-                    Log($"----Profit Target Orders of {kvp.Value.Symbol} for Exit Cancelled-----");
-                    kvp.Value.Cancel();
-                }
-            }
+            //if (Profit_Target_Tickets.Count > 0)
+            //{
+            //    foreach (var kvp in Profit_Target_Tickets)
+            //    {
+            //        Log($"----Profit Target Orders of {kvp.Value.Symbol} for Exit Cancelled-----");
+            //        kvp.Value.Cancel();
+            //    }
+            //}
 
             foreach (var kvp in Portfolio)
             {
