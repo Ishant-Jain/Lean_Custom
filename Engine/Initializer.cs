@@ -27,16 +27,6 @@ namespace QuantConnect.Lean.Engine
     public static class Initializer
     {
         /// <summary>
-        /// The current Lean Engine System handlers
-        /// </summary>
-        public static LeanEngineSystemHandlers LeanEngineSystemHandlers { get; private set; }
-
-        /// <summary>
-        /// The current Lean Engine Algorithm handlers
-        /// </summary>
-        public static LeanEngineAlgorithmHandlers LeanEngineAlgorithmHandlers { get; private set; }
-
-        /// <summary>
         /// Basic common Lean initialization
         /// </summary>
         public static void Start()
@@ -49,24 +39,43 @@ namespace QuantConnect.Lean.Engine
                 #endif
 
                 Log.DebuggingEnabled = Config.GetBool("debug-mode");
-                Log.FilePath = Path.Combine(Config.Get("results-destination-folder"), "log.txt");
+                var destinationDir = Config.Get("results-destination-folder");
+                if (!string.IsNullOrEmpty(destinationDir))
+                {
+                    Directory.CreateDirectory(destinationDir);
+                    Log.FilePath = Path.Combine(destinationDir, "log.txt");
+                }
                 Log.LogHandler = Composer.Instance.GetExportedValueByTypeName<ILogHandler>(Config.Get("log-handler", "CompositeLogHandler"));
 
                 Log.Trace($"Engine.Main(): LEAN ALGORITHMIC TRADING ENGINE v{Globals.Version} Mode: {mode} ({(Environment.Is64BitProcess ? "64" : "32")}bit) Host: {Environment.MachineName}");
                 Log.Trace("Engine.Main(): Started " + DateTime.Now.ToShortTimeString());
-
-                LeanEngineSystemHandlers = LeanEngineSystemHandlers.FromConfiguration(Composer.Instance);
-
-                //Setup packeting, queue and controls system: These don't do much locally.
-                LeanEngineSystemHandlers.Initialize();
-
-                LeanEngineAlgorithmHandlers = LeanEngineAlgorithmHandlers.FromConfiguration(Composer.Instance);
             }
             catch (Exception e)
             {
                 Log.Error(e);
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Get and initializes System Handler
+        /// </summary>
+        public static LeanEngineSystemHandlers GetSystemHandlers()
+        {
+            var systemHandlers = LeanEngineSystemHandlers.FromConfiguration(Composer.Instance);
+
+            //Setup packeting, queue and controls system: These don't do much locally.
+            systemHandlers.Initialize();
+
+            return systemHandlers;
+        }
+
+        /// <summary>
+        /// Get and initializes Algorithm Handler
+        /// </summary>
+        public static LeanEngineAlgorithmHandlers GetAlgorithmHandlers()
+        {
+            return LeanEngineAlgorithmHandlers.FromConfiguration(Composer.Instance);
         }
     }
 }

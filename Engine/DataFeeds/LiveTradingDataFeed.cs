@@ -21,9 +21,7 @@ using System.Threading.Tasks;
 using QuantConnect.Configuration;
 using QuantConnect.Data;
 using QuantConnect.Data.Custom;
-using QuantConnect.Data.Custom.Fred;
 using QuantConnect.Data.Custom.Tiingo;
-using QuantConnect.Data.Custom.TradingEconomics;
 using QuantConnect.Data.Market;
 using QuantConnect.Data.UniverseSelection;
 using QuantConnect.Interfaces;
@@ -203,24 +201,6 @@ namespace QuantConnect.Lean.Engine.DataFeeds
                         Tiingo.SetAuthCode(Config.Get("tiingo-auth-token"));
                     }
 
-                    if (!USEnergyAPI.IsAuthCodeSet)
-                    {
-                        // we're not using the SubscriptionDataReader, so be sure to set the auth token here
-                        USEnergyAPI.SetAuthCode(Config.Get("us-energy-information-auth-token"));
-                    }
-
-                    if (!FredApi.IsAuthCodeSet)
-                    {
-                        // we're not using the SubscriptionDataReader, so be sure to set the auth token here
-                        FredApi.SetAuthCode(Config.Get("fred-auth-token"));
-                    }
-
-                    if (!TradingEconomicsCalendar.IsAuthCodeSet)
-                    {
-                        // we're not using the SubscriptionDataReader, so be sure to set the auth token here
-                        TradingEconomicsCalendar.SetAuthCode(Config.Get("trading-economics-auth-token"));
-                    }
-
                     var factory = new LiveCustomDataSubscriptionEnumeratorFactory(_timeProvider);
                     var enumeratorStack = factory.CreateEnumerator(request, _dataProvider);
 
@@ -277,7 +257,7 @@ namespace QuantConnect.Lean.Engine.DataFeeds
                 // finally, make our subscriptions aware of the frontier of the data feed, prevents future data from spewing into the feed
                 enumerator = new FrontierAwareEnumerator(enumerator, _frontierTimeProvider, timeZoneOffsetProvider);
 
-                var subscriptionDataEnumerator = new SubscriptionDataEnumerator(request.Configuration, request.Security.Exchange.Hours, timeZoneOffsetProvider, enumerator);
+                var subscriptionDataEnumerator = new SubscriptionDataEnumerator(request.Configuration, request.Security.Exchange.Hours, timeZoneOffsetProvider, enumerator, request.IsUniverseSubscription);
                 subscription = new Subscription(request, subscriptionDataEnumerator, timeZoneOffsetProvider);
             }
             catch (Exception err)
@@ -403,7 +383,7 @@ namespace QuantConnect.Lean.Engine.DataFeeds
             }
 
             // create the subscription
-            var subscriptionDataEnumerator = new SubscriptionDataEnumerator(request.Configuration, request.Security.Exchange.Hours, tzOffsetProvider, enumerator);
+            var subscriptionDataEnumerator = new SubscriptionDataEnumerator(request.Configuration, request.Security.Exchange.Hours, tzOffsetProvider, enumerator, request.IsUniverseSubscription);
             subscription = new Subscription(request, subscriptionDataEnumerator, tzOffsetProvider);
 
             // send the subscription for the new symbol through to the data queuehandler
