@@ -23,9 +23,9 @@ namespace QuantConnect.Algorithm.CSharp
         private static Dictionary<Symbol, decimal> candlow;
         private static Dictionary<Symbol, decimal> candhigh;
         private static List<Symbol> FilterListSym;
-        private static Dictionary<Symbol,OrderTicket> Sell_Tickets;
-        private static Dictionary<Symbol,OrderTicket> Stop_Loss_Tickets;
-        private static Dictionary<Symbol, OrderTicket> Profit_Target_Tickets;
+        private static Dictionary<Symbol, OrderTicket> Sell_Tickets;
+        private static Dictionary<Symbol, OrderTicket> Stop_Loss_Tickets;
+        private static Dictionary<Symbol, int> Sym_Quantity;
         private List<Symbol> entryList;
         private decimal yhigh;
         private decimal thigh;
@@ -36,7 +36,7 @@ namespace QuantConnect.Algorithm.CSharp
         public override void Initialize()
         {
             SetStartDate(2020, 01, 02); //Set Start Date
-            SetEndDate(2020, 12, 31);
+            SetEndDate(2020, 01, 20);
             SetTimeZone("Asia/Calcutta"); //Set End Date
             SetAccountCurrency("INR");
             SetBrokerageModel(Brokerages.BrokerageName.Zerodha);
@@ -98,7 +98,7 @@ namespace QuantConnect.Algorithm.CSharp
             entryList = new List<Symbol>();
             Sell_Tickets = new Dictionary<Symbol, OrderTicket>();
             Stop_Loss_Tickets = new Dictionary<Symbol, OrderTicket>();
-            Profit_Target_Tickets = new Dictionary<Symbol, OrderTicket>();
+            Sym_Quantity = new Dictionary<Symbol, int>();
             yestclose.Clear();
             recentclose.Clear();
             todayhigh.Clear();
@@ -211,25 +211,25 @@ namespace QuantConnect.Algorithm.CSharp
             if (FilterListSym.Count() > 0)
             {
                 Log($"Portfolio value : {Portfolio.Cash} -- Portfolio margin Remaining : {Portfolio.MarginRemaining}");
-                decimal Equity_perc = Portfolio.Cash*3 / FilterListSym.Count;
-                decimal Min_Equity = Portfolio.Cash*3 * 2 / 10;
+                decimal Equity_perc = Portfolio.Cash * 3 / FilterListSym.Count;
+                decimal Min_Equity = Portfolio.Cash * 3 * 2 / 10;
                 decimal Equity = Math.Min(Equity_perc, Min_Equity);
-                //decimal Equity = Equity_perc;
 
                 foreach (Symbol sym in FilterListSym)
                 {
                     if (Securities[sym].Price > candlow[sym])
                     {
                         int qty = Convert.ToInt32(Math.Floor(Equity / candlow[sym]));
+                        Sym_Quantity.Add(sym, qty);
                         Log($"Stop Market Order Placed for {sym} : Quantity : {-qty} at Price : {candlow[sym]}");
-                        Sell_Tickets.Add(sym,StopMarketOrder(sym, -qty, candlow[sym]));
+                        Sell_Tickets.Add(sym, StopMarketOrder(sym, -qty, candlow[sym]));
                     }
                     else
                     {
                         int qty = Convert.ToInt32(Math.Floor(Equity / Securities[sym].Price));
+                        Sym_Quantity.Add(sym, qty);
                         Log($"Market Order Placed for {sym} : Quantity : {-qty} at Price : {Securities[sym].Close}");
                         MarketOrder(sym, -qty);
-
                     }
                 }
             }
@@ -261,23 +261,19 @@ namespace QuantConnect.Algorithm.CSharp
                 entryList.Add(orderEvent.Symbol);
                 var sym = orderEvent.Symbol;
                 var qty = orderEvent.Quantity * -1;
-                //var profit_target_price = orderEvent.FillPrice * (decimal)95/100;
-                //var stop_loss = orderEvent.FillPrice * 1.001M;
-                var stop_loss = Math.Min(candhigh[sym], orderEvent.FillPrice * 1.03M);
+                var stop_loss = candhigh[sym];
+
+                Log($"Stop Market Order Triggered for {sym} : Quantity : {-qty} at Price {orderEvent.FillPrice}");
+                Sell_Tickets.Remove(sym);
+
                 if (Securities[sym].Price < stop_loss)
                 {
-                    Log($"Stop Market Order Triggered for {sym} : Quantity : {-qty} at Price {orderEvent.FillPrice}");
                     Log($"STOPLOSS ACTIVATED - Stop Market Order Placed for {sym} : Quantity : {qty} at TriggerPrice {stop_loss}");
-                    //Log($"PROFIT TARGET ACTIVATED - Stop Market Order Placed for {sym} : Quantity : {qty} at TriggerPrice {profit_target_price}");
-                    Sell_Tickets.Remove(sym);
                     Stop_Loss_Tickets.Add(sym, StopMarketOrder(sym, qty, stop_loss));
-                    //Profit_Target_Tickets.Add(sym, LimitOrder(sym, qty, profit_target_price));
                 }
                 else
                 {
-                    Log($"Stop Market Order Triggered for {sym} : Quantity : {-qty} at Price {orderEvent.FillPrice}");
                     Log($"STOPLOSS ACTIVATED ---{sym} has benn Liquidated by Market Order Placed at Price {Securities[sym].Price} for Quantity : {qty}");
-                    Sell_Tickets.Remove(sym);
                     MarketOrder(sym, qty);
                 }
 
@@ -296,7 +292,6 @@ namespace QuantConnect.Algorithm.CSharp
                 if (Portfolio[orderEvent.Symbol].NetProfit > 0)
                 {
                     Log($"Liquidated in Profit for {orderEvent.Symbol} : Quantity : {orderEvent.Quantity} for Profit of : {Portfolio[orderEvent.Symbol].NetProfit}");
-                    //Profit_Target_Tickets.Remove(orderEvent.Symbol);
                 }
                 else
                 {
@@ -316,7 +311,7 @@ namespace QuantConnect.Algorithm.CSharp
             {
                 if (kvp.Value.Invested)
                 {
-                    Log($"Symbol: {kvp.Key} -> Quantity: {kvp.Value.Quantity} -> Current Price: {kvp.Value.Price} -> Profit/Loss: {kvp.Value.UnrealizedProfit}");
+                    Log($"Symbol: {kvp.Key} -> Quantity: {Sym_Quantity[kvp.Key]} -> Current Price: {kvp.Value.Price} -> Profit/Loss: {kvp.Value.UnrealizedProfit}");
                 }
             }
         }
@@ -326,19 +321,19 @@ namespace QuantConnect.Algorithm.CSharp
         //2.If Portfolio has any Equity Left at 03:15:00 P.M. => Liquidating all
         public void Exit_Positions()
         {
-            
             if (Sell_Tickets.Count > 0)
             {
                 foreach (var kvp in Sell_Tickets)
                 {
-                    Log($"----Stop Market Orders of {kvp.Value.Symbol} for short Cancelled-----");
+
                     try
                     {
                         kvp.Value.Cancel();
+                        Log($"----Stop Market Orders of {kvp.Value.Symbol} for short Cancelled-----");
                     }
                     catch
                     {
-                        Console.WriteLine("Order Not Found");
+                        Log("Order Not Found");
                     }
                 }
             }
@@ -347,30 +342,27 @@ namespace QuantConnect.Algorithm.CSharp
             {
                 foreach (var kvp in Stop_Loss_Tickets)
                 {
-                    Log($"----Stop Loss Orders of {kvp.Value.Symbol} for Exit Cancelled-----");
-                    kvp.Value.Cancel();
+                    try
+                    {
+                        kvp.Value.Cancel();
+                        Log($"----Stop Loss Orders of {kvp.Value.Symbol} for Exit Cancelled-----");
+                    }
+                    catch
+                    {
+                        Log("Order Not Found");
+                    }
                 }
             }
-
-            //if (Profit_Target_Tickets.Count > 0)
-            //{
-            //    foreach (var kvp in Profit_Target_Tickets)
-            //    {
-            //        Log($"----Profit Target Orders of {kvp.Value.Symbol} for Exit Cancelled-----");
-            //        kvp.Value.Cancel();
-            //    }
-            //}
 
             foreach (var kvp in Portfolio)
             {
                 if (kvp.Value.Invested)
                 {
-                    var qty = Math.Abs(kvp.Value.Quantity);
+                    var qty = Sym_Quantity[kvp.Key];
                     Log($"Liquidating Symbol: {kvp.Key} -> Quantity: {qty}");
                     MarketOrder(kvp.Key, qty);
                 }
             }
-
         }
     }
 }
