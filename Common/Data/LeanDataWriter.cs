@@ -360,8 +360,10 @@ namespace QuantConnect.Data
             foreach (var data in source)
             {
                 // Ensure the data is sorted
-                if (data.Time < lastTime) throw new Exception("The data must be pre-sorted from oldest to newest");
-
+                if (data.Time < lastTime)
+                {
+                    throw new Exception("The data must be pre-sorted from oldest to newest");
+                }
                 // Based on the security type and resolution, write the data to the zip file
                 if (lastTime != DateTime.MinValue && data.Time.Date > lastTime.Date)
                 {
