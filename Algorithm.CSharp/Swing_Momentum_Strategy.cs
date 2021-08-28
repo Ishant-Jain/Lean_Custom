@@ -33,7 +33,7 @@ namespace QuantConnect.Algorithm.CSharp
             SubscriptionManager.AddConsolidator("CONCOR", hourly);
             rsi = RSI("CONCOR", 2, MovingAverageType.Simple, Resolution.Hour);
 
-            DefaultOrderProperties = new ZerodhaOrderProperties(exchange: "nse");
+            DefaultOrderProperties = new ZerodhaOrderProperties(exchange: Exchange.NSE);
         }
 
         public void OnHour(object sender, TradeBar bar)

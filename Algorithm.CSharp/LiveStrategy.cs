@@ -72,7 +72,7 @@ namespace QuantConnect.Algorithm.CSharp
                 //temp.SetLeverage(3);
                 i++;
             }
-            DefaultOrderProperties = new ZerodhaOrderProperties(exchange: "nse");
+            DefaultOrderProperties = new ZerodhaOrderProperties(exchange: Exchange.NSE);
 
             Schedule.On(DateRules.Every(DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday),
                 TimeRules.At(10, 1, 0), () => { PerformFilter(); });

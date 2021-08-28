@@ -27,7 +27,7 @@ namespace QuantConnect.Algorithm.CSharp
 
             AddEquity("CONCOR", Resolution.Minute, Market.India);
 
-            DefaultOrderProperties = new ZerodhaOrderProperties(exchange: "nse");
+            DefaultOrderProperties = new ZerodhaOrderProperties(exchange:Exchange.NSE);
 
         }
 
