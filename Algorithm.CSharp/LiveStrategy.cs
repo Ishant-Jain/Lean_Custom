@@ -25,7 +25,7 @@ namespace QuantConnect.Algorithm.CSharp
         private static List<Symbol> FilterListSym;
         private static Dictionary<Symbol, OrderTicket> Sell_Tickets;
         private static Dictionary<Symbol, OrderTicket> Stop_Loss_Tickets;
-        private static Dictionary<Symbol, int> Sym_Quantity;
+        private static Dictionary<Symbol, decimal> Sym_Quantity;
         private List<Symbol> entryList;
         private decimal yhigh;
         private decimal thigh;
@@ -36,7 +36,7 @@ namespace QuantConnect.Algorithm.CSharp
         public override void Initialize()
         {
             SetStartDate(2020, 01, 02); //Set Start Date
-            SetEndDate(2020, 01, 20);
+            SetEndDate(2020, 01, 10);
             SetTimeZone("Asia/Calcutta"); //Set End Date
             SetAccountCurrency("INR");
             SetBrokerageModel(Brokerages.BrokerageName.Zerodha);
@@ -72,13 +72,15 @@ namespace QuantConnect.Algorithm.CSharp
                 //temp.SetLeverage(3);
                 i++;
             }
+            Sym_Quantity = new Dictionary<Symbol, decimal>();
             DefaultOrderProperties = new ZerodhaOrderProperties(exchange: Exchange.NSE);
 
             Schedule.On(DateRules.Every(DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday),
                 TimeRules.At(10, 1, 0), () => { PerformFilter(); });
             Schedule.On(DateRules.Every(DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday),
-                TimeRules.At(15, 15, 0), () => { Exit_Positions(); });
-
+                TimeRules.At(14, 45, 0), () => { Exit_Positions(); });
+            Schedule.On(DateRules.Every(DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday),
+                TimeRules.At(15, 15, 0), () => { Liquidate(); });
         }
 
 
@@ -98,7 +100,7 @@ namespace QuantConnect.Algorithm.CSharp
             entryList = new List<Symbol>();
             Sell_Tickets = new Dictionary<Symbol, OrderTicket>();
             Stop_Loss_Tickets = new Dictionary<Symbol, OrderTicket>();
-            Sym_Quantity = new Dictionary<Symbol, int>();
+            //Sym_Quantity = new Dictionary<Symbol, decimal>();
             yestclose.Clear();
             recentclose.Clear();
             todayhigh.Clear();
@@ -220,16 +222,14 @@ namespace QuantConnect.Algorithm.CSharp
                     if (Securities[sym].Price > candlow[sym])
                     {
                         int qty = Convert.ToInt32(Math.Floor(Equity / candlow[sym]));
-                        Sym_Quantity.Add(sym, qty);
                         Log($"Stop Market Order Placed for {sym} : Quantity : {-qty} at Price : {candlow[sym]}");
                         Sell_Tickets.Add(sym, StopMarketOrder(sym, -qty, candlow[sym]));
                     }
                     else
                     {
                         int qty = Convert.ToInt32(Math.Floor(Equity / Securities[sym].Price));
-                        Sym_Quantity.Add(sym, qty);
                         Log($"Market Order Placed for {sym} : Quantity : {-qty} at Price : {Securities[sym].Close}");
-                        MarketOrder(sym, -qty);
+                        MarketOrder(sym, -qty, asynchronous: true);
                     }
                 }
             }
@@ -237,9 +237,7 @@ namespace QuantConnect.Algorithm.CSharp
 
         public override void OnData(Slice slice)
         {
-            Log($"<<===============Portfolio Contains===============>>");
             Show_Positions();
-            Log($"<<================================================>>");
         }
 
         public override void OnOrderEvent(OrderEvent orderEvent)
@@ -256,16 +254,30 @@ namespace QuantConnect.Algorithm.CSharp
             //6. Place Profit-Target Order and Add the Order to the Profit_Target_Tickets.
             //7. Otherwise if Securities[sym].Price > candhigh[sym], Place a Mraket Order to Liquidate the Symbol.
 
-            if (orderEvent.Status == OrderStatus.Filled && !entryList.Contains(orderEvent.Symbol))
+            if (orderEvent.Status == OrderStatus.Filled && !entryList.Contains(orderEvent.Symbol) && orderEvent.Quantity<0)
             {
                 entryList.Add(orderEvent.Symbol);
                 var sym = orderEvent.Symbol;
                 var qty = orderEvent.Quantity * -1;
                 var stop_loss = candhigh[sym];
+                Sym_Quantity.Add(sym, orderEvent.Quantity);
 
-                Log($"Stop Market Order Triggered for {sym} : Quantity : {-qty} at Price {orderEvent.FillPrice}");
-                Sell_Tickets.Remove(sym);
+                //1. If StopMarketOrder is Filled then :
+                //   Remove Ticket from Dictionary and Print Trigger Message
+                //2. Else If MarketOrder get Triggered then there is no ticket to remove
+                //   and trigger message is already printed above.
 
+                try
+                {
+                    Sell_Tickets.Remove(sym);
+                    Log($"Stop Market Order Triggered for {sym} : Quantity : {-qty} at Price {orderEvent.FillPrice}");
+                }
+                catch
+                {
+                    return;
+                }
+
+                // Activating Stop Loss for each Short Order Placed
                 if (Securities[sym].Price < stop_loss)
                 {
                     Log($"STOPLOSS ACTIVATED - Stop Market Order Placed for {sym} : Quantity : {qty} at TriggerPrice {stop_loss}");
@@ -274,7 +286,7 @@ namespace QuantConnect.Algorithm.CSharp
                 else
                 {
                     Log($"STOPLOSS ACTIVATED ---{sym} has benn Liquidated by Market Order Placed at Price {Securities[sym].Price} for Quantity : {qty}");
-                    MarketOrder(sym, qty);
+                    MarketOrder(sym, qty, asynchronous: true);
                 }
 
             }
@@ -289,17 +301,19 @@ namespace QuantConnect.Algorithm.CSharp
             //   when we Cancel the Non-Triggered Orders, we don't get Error from Broker.
             if (orderEvent.Status == OrderStatus.Filled && orderEvent.Quantity > 0)
             {
-                if (Portfolio[orderEvent.Symbol].NetProfit > 0)
+                var sym = orderEvent.Symbol;
+                var qty = orderEvent.Quantity;
+                if (Portfolio[sym].NetProfit > 0)
                 {
-                    Log($"Liquidated in Profit for {orderEvent.Symbol} : Quantity : {orderEvent.Quantity} for Profit of : {Portfolio[orderEvent.Symbol].NetProfit}");
+                    Log($"Liquidated in Profit for {sym} : Quantity : {qty} for Profit of : {Portfolio[sym].NetProfit}");
                 }
                 else
                 {
-                    Log($"STOPLOSS Triggered for {orderEvent.Symbol} : Quantity : {orderEvent.Quantity} for Loss of : {Portfolio[orderEvent.Symbol].NetProfit}");
-                    Stop_Loss_Tickets.Remove(orderEvent.Symbol);
+                    Log($"StopLoss Triggered/Liquidated for {sym} : Quantity : {qty} for Loss of : {Portfolio[sym].NetProfit}");
+                    Stop_Loss_Tickets.Remove(sym);
                 }
-
-                Log($"{orderEvent.Symbol}---->>POsition Exit");
+                Sym_Quantity.Remove(sym);
+                Log($"{sym}---->>POsition Exit");
             }
         }
 
@@ -307,6 +321,21 @@ namespace QuantConnect.Algorithm.CSharp
         //1. Show Current Status of Portfolio
         public void Show_Positions()
         {
+            try
+            {
+                Log("========Custom Portfolio========");
+                foreach (var kvp in Sym_Quantity)
+                {
+                    Log($"Symbol: {kvp.Key} -> Quantity: {kvp.Value}");
+                }
+                Log("================================");
+            }
+            catch (System.NullReferenceException)
+            {
+                Log("Custom Posrtfolio Not Yet Initialised");
+            }
+
+            Log("========Lean's Portfolio========");
             foreach (var kvp in Portfolio)
             {
                 if (kvp.Value.Invested)
@@ -314,6 +343,7 @@ namespace QuantConnect.Algorithm.CSharp
                     Log($"Symbol: {kvp.Key} -> Quantity: {Sym_Quantity[kvp.Key]} -> Current Price: {kvp.Value.Price} -> Profit/Loss: {kvp.Value.UnrealizedProfit}");
                 }
             }
+            Log("================================");
         }
 
         //Summary//
@@ -354,14 +384,11 @@ namespace QuantConnect.Algorithm.CSharp
                 }
             }
 
-            foreach (var kvp in Portfolio)
+            foreach (var kvp in Sym_Quantity)
             {
-                if (kvp.Value.Invested)
-                {
-                    var qty = Sym_Quantity[kvp.Key];
-                    Log($"Liquidating Symbol: {kvp.Key} -> Quantity: {qty}");
-                    MarketOrder(kvp.Key, qty);
-                }
+                var qty = Math.Abs(kvp.Value);
+                Log($"Liquidating Symbol: {kvp.Key} -> Quantity: {qty}");
+                MarketOrder(kvp.Key, qty, asynchronous:true);
             }
         }
     }
