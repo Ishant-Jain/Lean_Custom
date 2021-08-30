@@ -72,15 +72,16 @@ namespace QuantConnect.Algorithm.CSharp
                 //temp.SetLeverage(3);
                 i++;
             }
+            Log("====Latest strategy v2.0 Initialised====");
             Sym_Quantity = new Dictionary<Symbol, decimal>();
             DefaultOrderProperties = new ZerodhaOrderProperties(exchange: Exchange.NSE);
 
             Schedule.On(DateRules.Every(DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday),
                 TimeRules.At(10, 1, 0), () => { PerformFilter(); });
             Schedule.On(DateRules.Every(DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday),
-                TimeRules.At(14, 45, 0), () => { Exit_Positions(); });
-            Schedule.On(DateRules.Every(DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday),
-                TimeRules.At(15, 15, 0), () => { Liquidate(); });
+                TimeRules.At(15, 15, 0), () => { Exit_Positions(); });
+            //Schedule.On(DateRules.Every(DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday),
+                //TimeRules.At(15, 15, 0), () => { Liquidate(); });
         }
 
 
@@ -330,7 +331,7 @@ namespace QuantConnect.Algorithm.CSharp
                 }
                 Log("================================");
             }
-            catch (System.NullReferenceException)
+            catch
             {
                 Log("Custom Posrtfolio Not Yet Initialised");
             }
@@ -340,7 +341,7 @@ namespace QuantConnect.Algorithm.CSharp
             {
                 if (kvp.Value.Invested)
                 {
-                    Log($"Symbol: {kvp.Key} -> Quantity: {Sym_Quantity[kvp.Key]} -> Current Price: {kvp.Value.Price} -> Profit/Loss: {kvp.Value.UnrealizedProfit}");
+                    Log($"Symbol: {kvp.Key} -> Quantity: {kvp.Value.Quantity} -> Current Price: {kvp.Value.Price} -> Profit/Loss: {kvp.Value.UnrealizedProfit}");
                 }
             }
             Log("================================");
