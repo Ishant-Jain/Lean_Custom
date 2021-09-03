@@ -111,17 +111,19 @@ namespace QuantConnect.Algorithm.CSharp
                     //Log($"Second Day Perc Gain for {symb} = {(current_close / day_2_close - 1) * 100}");
                 }
 
-                if (second_perc_gain > first_perc_gain)
+                if (second_perc_gain > first_perc_gain && first_perc_gain>0)
                 {
                     var gain_close = new List<decimal>() { second_perc_gain - first_perc_gain, current_close };
                     Filtered_Sym.Add(symb, gain_close);
                 }
+
+
             }
 
             if (Filtered_Sym.Count > 0)
             {
                 var Sortedgain = Filtered_Sym.OrderByDescending(x => x.Value[0]);
-                var temp_list = Sortedgain.Take(5).Select(x => x.Key).ToList();
+                var temp_list = Sortedgain.Take(2).Select(x => x.Key).ToList();
 
                 int i = 1;
                 Log($"The top 5 Gainer for {Time} :");

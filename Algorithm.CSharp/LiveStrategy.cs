@@ -36,7 +36,7 @@ namespace QuantConnect.Algorithm.CSharp
         public override void Initialize()
         {
             SetStartDate(2020, 01, 02); //Set Start Date
-            SetEndDate(2020, 01, 10);
+            SetEndDate(2020, 12, 31);
             SetTimeZone("Asia/Calcutta"); //Set End Date
             SetAccountCurrency("INR");
             SetBrokerageModel(Brokerages.BrokerageName.Zerodha);
@@ -77,8 +77,8 @@ namespace QuantConnect.Algorithm.CSharp
 
             Schedule.On(DateRules.Every(DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday),
                 TimeRules.At(10, 1, 0), () => { PerformFilter(); });
-            Schedule.On(DateRules.Every(DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday),
-                TimeRules.At(14, 45, 0), () => { Exit_Positions(); });
+            //Schedule.On(DateRules.Every(DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday),
+                //TimeRules.At(14, 45, 0), () => { Exit_Positions(); });
             Schedule.On(DateRules.Every(DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday),
                 TimeRules.At(15, 15, 0), () => { Liquidate(); });
         }
@@ -109,6 +109,7 @@ namespace QuantConnect.Algorithm.CSharp
             candlow.Clear();
             candhigh.Clear();
             FilterListSym.Clear();
+            Sym_Quantity.Clear();
             Log("Starting to process scheduled event : Filter");
             Log($"Historical Data for : {Time.Date}");
             foreach (var symb in symbollist)
@@ -280,13 +281,13 @@ namespace QuantConnect.Algorithm.CSharp
                 // Activating Stop Loss for each Short Order Placed
                 if (Securities[sym].Price < stop_loss)
                 {
-                    Log($"STOPLOSS ACTIVATED - Stop Market Order Placed for {sym} : Quantity : {qty} at TriggerPrice {stop_loss}");
-                    Stop_Loss_Tickets.Add(sym, StopMarketOrder(sym, qty, stop_loss));
+                    Log($"STOPLOSS ACTIVATED - Stop Market Order Placed for {sym} : Quantity : {qty*2} at TriggerPrice {stop_loss}");
+                    Stop_Loss_Tickets.Add(sym, StopMarketOrder(sym, qty*2, stop_loss));
                 }
                 else
                 {
-                    Log($"STOPLOSS ACTIVATED ---{sym} has benn Liquidated by Market Order Placed at Price {Securities[sym].Price} for Quantity : {qty}");
-                    MarketOrder(sym, qty, asynchronous: true);
+                    Log($"STOPLOSS ACTIVATED ---{sym} has benn Liquidated by Market Order Placed at Price {Securities[sym].Price} for Quantity : {qty*2}");
+                    MarketOrder(sym, qty*2, asynchronous: true);
                 }
 
             }
@@ -311,8 +312,13 @@ namespace QuantConnect.Algorithm.CSharp
                 {
                     Log($"StopLoss Triggered/Liquidated for {sym} : Quantity : {qty} for Loss of : {Portfolio[sym].NetProfit}");
                     Stop_Loss_Tickets.Remove(sym);
+                    if (Sym_Quantity[sym] < 0)
+                    {
+                        Sym_Quantity[sym] += qty;
+                    }
+                    
                 }
-                Sym_Quantity.Remove(sym);
+                //Sym_Quantity.Remove(sym);
                 Log($"{sym}---->>POsition Exit");
             }
         }
@@ -386,9 +392,10 @@ namespace QuantConnect.Algorithm.CSharp
 
             foreach (var kvp in Sym_Quantity)
             {
-                var qty = Math.Abs(kvp.Value);
+                var qty = kvp.Value>0 ? kvp.Value : Math.Abs(kvp.Value);
                 Log($"Liquidating Symbol: {kvp.Key} -> Quantity: {qty}");
                 MarketOrder(kvp.Key, qty, asynchronous:true);
+                Sym_Quantity.Remove(kvp.Key);
             }
         }
     }

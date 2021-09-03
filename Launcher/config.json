@@ -9,7 +9,7 @@
   "environment": "backtesting", // "live-paper", "backtesting", "live-interactive", "live-interactive-iqfeed"
 
   // algorithm class selector
-  "algorithm-type-name": "Three_Days_Momentum_Strategy",
+  "algorithm-type-name": "Two_Days_Momentum_Strategy",
 
   // Algorithm language selector - options CSharp, Python
   "algorithm-language": "CSharp",
