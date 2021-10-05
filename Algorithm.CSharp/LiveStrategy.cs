@@ -35,12 +35,12 @@ namespace QuantConnect.Algorithm.CSharp
         QuantConnect.Symbol[] symbollist;
         public override void Initialize()
         {
-            SetStartDate(2020, 01, 02); //Set Start Date
-            SetEndDate(2020, 12, 31);
+            SetStartDate(2021, 09, 01); //Set Start Date
+            SetEndDate(2021, 09, 28);
             SetTimeZone("Asia/Calcutta"); //Set End Date
             SetAccountCurrency("INR");
             SetBrokerageModel(Brokerages.BrokerageName.Zerodha);
-            SetCash(10000000);
+            SetCash(975520);
             //UniverseSettings.Leverage = 3;
 
             tickers = new List<string>() {"AARTIIND","ACC","ADANIENT","ADANIPORTS","ALKEM","AMARAJABAT","AMBUJACEM",
@@ -238,7 +238,7 @@ namespace QuantConnect.Algorithm.CSharp
 
         public override void OnData(Slice slice)
         {
-            Show_Positions();
+            //Show_Positions();
         }
 
         public override void OnOrderEvent(OrderEvent orderEvent)
@@ -281,13 +281,13 @@ namespace QuantConnect.Algorithm.CSharp
                 // Activating Stop Loss for each Short Order Placed
                 if (Securities[sym].Price < stop_loss)
                 {
-                    Log($"STOPLOSS ACTIVATED - Stop Market Order Placed for {sym} : Quantity : {qty*2} at TriggerPrice {stop_loss}");
-                    Stop_Loss_Tickets.Add(sym, StopMarketOrder(sym, qty*2, stop_loss));
+                    Log($"STOPLOSS ACTIVATED - Stop Market Order Placed for {sym} : Quantity : {qty} at TriggerPrice {stop_loss}");
+                    Stop_Loss_Tickets.Add(sym, StopMarketOrder(sym, qty, stop_loss));
                 }
                 else
                 {
-                    Log($"STOPLOSS ACTIVATED ---{sym} has benn Liquidated by Market Order Placed at Price {Securities[sym].Price} for Quantity : {qty*2}");
-                    MarketOrder(sym, qty*2, asynchronous: true);
+                    Log($"STOPLOSS ACTIVATED ---{sym} has benn Liquidated by Market Order Placed at Price {Securities[sym].Price} for Quantity : {qty}");
+                    MarketOrder(sym, qty, asynchronous: true);
                 }
 
             }
