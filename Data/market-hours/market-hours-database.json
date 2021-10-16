@@ -36159,7 +36159,23 @@
     "Equity-india-[*]": {
       "dataTimeZone": "Asia/Kolkata",
       "exchangeTimeZone": "Asia/Kolkata",
-      "sunday": [],
+      "sunday": [
+        {
+          "start": "09:00:00",
+          "end": "09:15:00",
+          "state": "premarket"
+        },
+        {
+          "start": "09:15:00",
+          "end": "15:30:00",
+          "state": "market"
+        },
+        {
+          "start": "15:40:00",
+          "end": "16:00:00",
+          "state": "postmarket"
+        }
+      ],
       "monday": [
         {
           "start": "09:00:00",
@@ -36245,7 +36261,23 @@
           "state": "postmarket"
         }
       ],
-      "saturday": [],
+      "saturday": [
+        {
+          "start": "09:00:00",
+          "end": "09:15:00",
+          "state": "premarket"
+        },
+        {
+          "start": "09:15:00",
+          "end": "15:30:00",
+          "state": "market"
+        },
+        {
+          "start": "15:40:00",
+          "end": "16:00:00",
+          "state": "postmarket"
+        }
+      ],
       "holidays": [
         "1/26/2004",
         "4/14/2004",
@@ -36429,7 +36461,7 @@
         "7/21/2021",
         "8/19/2021",
         "9/10/2021",
-        "10/15/2021",
+        "10/16/2021",
         "11/5/2021",
         "11/19/2021",
         "1/26/2022",

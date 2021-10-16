@@ -47,6 +47,7 @@ namespace QuantConnect.Brokerages.Samco
         private readonly CancellationTokenSource _ctsFillMonitor = new CancellationTokenSource();
         private readonly AutoResetEvent _fillMonitorResetEvent = new AutoResetEvent(false);
         private readonly Task _fillMonitorTask;
+        private readonly Task _checkConnectionTask;
         private readonly int _fillMonitorTimeout = Config.GetInt("samco.FillMonitorTimeout", 500);
         private readonly ConcurrentDictionary<int, decimal> _fills = new ConcurrentDictionary<int, decimal>();
         private readonly BrokerageConcurrentMessageHandler<WebSocketMessage> _messageHandler;
@@ -56,6 +57,7 @@ namespace QuantConnect.Brokerages.Samco
         private readonly string _samcoApiSecret;
         private readonly string _samcoYob;
         private readonly Timer _reconnectTimer;
+        private readonly MarketHoursDatabase _mhdb = MarketHoursDatabase.FromDataFolder();
 
         // MIS/CNC/NRML
         private readonly string _samcoProductType;
@@ -72,6 +74,8 @@ namespace QuantConnect.Brokerages.Samco
         private readonly List<string> _unSubscribeInstrumentTokens = new List<string>();
 
         private DateTime _lastTradeTickTime;
+        private string _sessionId;
+        private int _heartBeatMonitor;
 
         /// <summary>
         /// The websockets client instance
@@ -132,6 +136,9 @@ namespace QuantConnect.Brokerages.Samco
 
             _subscriptionManager = subscriptionManager;
             _fillMonitorTask = Task.Factory.StartNew(FillMonitorAction, _ctsFillMonitor.Token);
+
+            // we start a task that will be in charge of expiring and refreshing our session id
+            _checkConnectionTask = Task.Factory.StartNew(action: CheckConnection, _ctsFillMonitor.Token, creationOptions: TaskCreationOptions.LongRunning, TaskScheduler.Default);
 
             // A single connection to stream.stocknote.com is only valid for 24 hours;
             // expect to be disconnected at the 24 hour mark
@@ -220,6 +227,8 @@ namespace QuantConnect.Brokerages.Samco
             if (WebSocket.IsOpen)
             {
                 WebSocket.Close();
+                _sessionId = null;
+                Log.Trace("websocket disconnected");
             }
         }
 
@@ -233,6 +242,7 @@ namespace QuantConnect.Brokerages.Samco
             _samcoAPI.Dispose();
             _ctsFillMonitor.Dispose();
             _fillMonitorTask.Wait(TimeSpan.FromSeconds(5));
+            _checkConnectionTask.Wait(TimeSpan.FromSeconds(5));
             _fillMonitorResetEvent.Dispose();
             _reconnectTimer.Dispose();
         }
@@ -855,6 +865,53 @@ namespace QuantConnect.Brokerages.Samco
             }
         }
 
+        private void CheckConnection()
+        {
+            var timeoutLoop = TimeSpan.FromMinutes(1);
+            while (!_ctsFillMonitor.Token.IsCancellationRequested)
+            {
+                _ctsFillMonitor.Token.WaitHandle.WaitOne(timeoutLoop);
+
+                try
+                {
+                    // we start trying to reconnect during extended market hours so we are all set for normal hours
+                    if (!IsConnected && IsExchangeOpen(true))
+                    {
+                        if (Interlocked.Increment(ref _heartBeatMonitor) > 1 || _sessionId == null)
+                        {
+                            Log.Error($"SamcoBrokerage.CheckConnection(): resetting connection...",
+                                overrideMessageFloodProtection: true);
+
+                            try
+                            {
+                                Disconnect();
+                            }
+                            catch
+                            {
+                                // don't let it stop us from reconnecting
+                            }
+                            Thread.Sleep(100);
+
+                            // create a new instance
+                            Connect();
+
+                            // clear
+                            Interlocked.Exchange(ref _heartBeatMonitor, 0);
+                        }
+                    }
+                    else
+                    {
+                        // our session Id expires each day
+                        _sessionId = null;
+                    }
+                }
+                catch (Exception e)
+                {
+                    Log.Error(e);
+                }
+            }
+        }
+
         private void FillMonitorAction()
         {
             Log.Trace("SamcoBrokerage.FillMonitorAction(): task started");
@@ -1047,6 +1104,14 @@ namespace QuantConnect.Brokerages.Samco
             {
                 Thread.Sleep(500);
             }
+        }
+
+        private bool IsExchangeOpen(bool extendedMarketHours)
+        {
+            var leanSymbol = Symbol.Create("SBIN", SecurityType.Equity, Market.India);
+            var securityExchangeHours = _mhdb.GetExchangeHours(Market.India, leanSymbol, SecurityType.Equity);
+            var localTime = DateTime.UtcNow.ConvertFromUtc(securityExchangeHours.TimeZone);
+            return securityExchangeHours.IsOpen(localTime, extendedMarketHours);
         }
     }
 }
