@@ -233,12 +233,12 @@ namespace QuantConnect.Lean.Engine.DataFeeds
                     }
 
                     EventHandler handler = (_, _) => subscription?.OnNewDataAvailable();
-                    enumerator = _dataQueueHandler.Subscribe(request.Configuration, handler);
+                    enumerator = Subscribe(request.Configuration, handler);
 
                     if (request.Configuration.EmitSplitsAndDividends())
                     {
-                        auxEnumerators.Add(_dataQueueHandler.Subscribe(new SubscriptionDataConfig(request.Configuration, typeof(Dividend)), handler));
-                        auxEnumerators.Add(_dataQueueHandler.Subscribe(new SubscriptionDataConfig(request.Configuration, typeof(Split)), handler));
+                        auxEnumerators.Add(Subscribe(new SubscriptionDataConfig(request.Configuration, typeof(Dividend)), handler));
+                        auxEnumerators.Add(Subscribe(new SubscriptionDataConfig(request.Configuration, typeof(Split)), handler));
                     }
 
                     if (auxEnumerators.Count > 0)
